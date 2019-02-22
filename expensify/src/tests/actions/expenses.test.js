@@ -1,6 +1,6 @@
 import configureMockStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
-import { startAddExpense, createExpense, editExpense, removeExpense, setExpenses, startSetExpenses, startRemoveExpense } from '../../actions/expenses';
+import { startAddExpense, createExpense, editExpense, startEditExpense, removeExpense, startRemoveExpense, setExpenses, startSetExpenses } from '../../actions/expenses';
 import expenses from '../fixtures/expenses';
 import database from '../../firebase/firebase';
 
@@ -29,7 +29,28 @@ test('should setup edit expense action object', () => {
       note: 'stuff'
     }
   });
-})
+});
+
+test('should edit expense in database and dispatch action', (done) => {
+  const store = createMockStore({});
+  const note = 'This is a note for the 2nd expense';
+  const expenseUpdate = {
+    ...expenses[1],
+    note
+  }
+  store.dispatch(startEditExpense(expenses[1].id, expenseUpdate)).then(() => {
+    const actions = store.getActions();
+    expect(actions[0]).toEqual({
+      type: 'EDIT_EXPENSE',
+      update: expenseUpdate,
+      id: expenses[1].id
+    });
+    return database.ref(`expenses/${expenses[1].id}`).once('value');
+  }).then((snapshot) => {
+    expect(snapshot.val()).toEqual(expenseUpdate);
+    done();
+  });
+});
 
 test('should setup create expense action object with provided values', () => {
   const expenseData = {
@@ -55,17 +76,13 @@ test('should add expense to database and store', (done) => {
   }
   store.dispatch(startAddExpense(expenseData)).then(() => {
     const actions = store.getActions();
-    try {
-      expect(actions[0]).toEqual({
-        type: 'ADD_EXPENSE',
-        expense: {
-            id: expect.any(String),
-            ...expenseData
-        }
-      });
-    } catch (e) {
-      done.fail(e);
-    }
+    expect(actions[0]).toEqual({
+      type: 'ADD_EXPENSE',
+      expense: {
+          id: expect.any(String),
+          ...expenseData
+      }
+    });
     return database.ref(`expenses/${actions[0].expense.id}`).once('value');
   }).then((snapshot) => {
     expect(snapshot.val()).toEqual(expenseData);
